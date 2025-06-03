@@ -1,0 +1,28 @@
+#git ignore que ignora archivos como los siguientes (se generan automaticamente)
+# Carpetas generadas automáticamente
+build/
+dist/
+nbbuild/
+nbdist/
+nbactions.xml
+nb-configuration.xml
+
+# Archivos temporales y de logs
+*.log
+*.bak
+*.tmp
+
+# Archivos específicos de NetBeans (privados del usuario)
+nbproject/private/
+
+# Carpetas comunes en IDEs
+.idea/
+*.iml
+
+# Archivos de sistema operativo (mas que nada para MAC)
+.DS_Store
+Thumbs.db
+
+# JMonkeyEngine SDK-specific folders
+assets/Textures/Thumbs.db
+assets/Sounds/Thumbs.db
