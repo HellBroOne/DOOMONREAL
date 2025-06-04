@@ -1,32 +1,26 @@
 package mygame;
 
-import com.jme3.app.state.BaseAppState;
 import com.jme3.app.Application;
+import com.jme3.app.state.BaseAppState;
+import com.jme3.scene.Geometry;
+import com.jme3.scene.Node;
+import com.jme3.material.Material;
+import com.jme3.scene.shape.Box;
+import com.jme3.math.ColorRGBA;
+import com.jme3.math.Vector3f;
 
 public class GeneradorEnemigos extends BaseAppState {
 
-    private Main juego;
-    private float temporizador = 0;
-    private float intervaloGeneracion = 2f;
+    private Main mainApp;
+    private float tiempoAcumulado = 0f;
+    private float intervaloGeneracion = 3f;
 
-    public GeneradorEnemigos(Main juego) {
-        this.juego = juego;
+    public GeneradorEnemigos(Main app) {
+        this.mainApp = app;
     }
 
     @Override
     protected void initialize(Application app) {}
-
-    @Override
-    public void update(float tpf) {
-        temporizador += tpf;
-        
-        if (temporizador >= intervaloGeneracion) {
-            juego.crearEnemigo();
-            temporizador = 0;
-            
-            intervaloGeneracion = Math.max(0.5f, intervaloGeneracion * 0.95f);
-        }
-    }
 
     @Override
     protected void cleanup(Application app) {}
@@ -36,4 +30,13 @@ public class GeneradorEnemigos extends BaseAppState {
 
     @Override
     protected void onDisable() {}
+
+    @Override
+    public void update(float tpf) {
+        tiempoAcumulado += tpf;
+        if (tiempoAcumulado >= intervaloGeneracion) {
+            tiempoAcumulado = 0;
+            mainApp.crearEnemigo();
+        }
+    }
 }
