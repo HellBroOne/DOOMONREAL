@@ -31,6 +31,10 @@ import com.jme3.font.BitmapText;
 import com.jme3.font.BitmapFont;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
+import com.jme3.util.SkyFactory;
+import com.jme3.input.controls.MouseAxisTrigger;
+
+
 
 public class Main extends SimpleApplication implements ActionListener {
 
@@ -47,7 +51,12 @@ public class Main extends SimpleApplication implements ActionListener {
     private int puntuacion = 0;
     private BitmapText hudText;
     private BitmapText gameOverText;
+    private AudioNode music;
     private boolean gameOver = false;
+    private float rotacionJugador = 0;
+    private float sensibilidadMouse = 0.01f;
+    private Node cameraNode;
+
 
     public static void main(String[] args) {
         AppSettings settings = new AppSettings(true);
@@ -63,14 +72,17 @@ public class Main extends SimpleApplication implements ActionListener {
 
     @Override
     public void simpleInitApp() {
-        flyCam.setEnabled(false);
+        inputManager.setCursorVisible(false);
+        flyCam.setEnabled(true);
+        flyCam.setMoveSpeed(15f);
         cam.setLocation(new Vector3f(0, 20, 30));
         cam.lookAt(new Vector3f(0, 0, 0), Vector3f.UNIT_Y);
 
         // Música de fondo
-        AudioNode music = new AudioNode(assetManager, "Sounds/doomonreal_bgm.wav", AudioData.DataType.Stream);
+        music = new AudioNode(assetManager, "Sounds/doomonreal_bgm.wav", AudioData.DataType.Stream);
         music.setPositional(false);
         music.setLooping(true);
+        music.setVolume(120f);
         music.play();
 
         configurarControles();
@@ -82,6 +94,18 @@ public class Main extends SimpleApplication implements ActionListener {
 
         materialEnemigo = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         materialEnemigo.setColor("Color", ColorRGBA.Red);
+        
+        //Skybox
+        Spatial sky = SkyFactory.createSky(
+            assetManager,
+            assetManager.loadTexture("Textures/Sky/top.png"),
+            assetManager.loadTexture("Textures/Sky/top.png"),
+            assetManager.loadTexture("Textures/Sky/top.png"),
+            assetManager.loadTexture("Textures/Sky/top.png"),
+            assetManager.loadTexture("Textures/Sky/top.png"),
+            assetManager.loadTexture("Textures/Sky/top.png")
+        );
+        rootNode.attachChild(sky);
 
         // Luces para mejor visibilidad
         DirectionalLight luzDireccional = new DirectionalLight();
@@ -92,7 +116,7 @@ public class Main extends SimpleApplication implements ActionListener {
         AmbientLight luzAmbiente = new AmbientLight();
         luzAmbiente.setColor(ColorRGBA.White.mult(0.3f));
         rootNode.addLight(luzAmbiente);
-
+        
         // Suelo, jugador y puente
         crearSuelo();
         crearPuente();
@@ -114,8 +138,8 @@ public class Main extends SimpleApplication implements ActionListener {
         
         // Texto de Game Over (inicialmente invisible)
         gameOverText = new BitmapText(font, false);
-        gameOverText.setSize(font.getCharSet().getRenderedSize() * 2);
-        gameOverText.setColor(ColorRGBA.Red);
+        gameOverText.setSize(font.getCharSet().getRenderedSize() * 10);
+        gameOverText.setColor(ColorRGBA.White);
         gameOverText.setText("GAME OVER");
         gameOverText.setLocalTranslation(
             settings.getWidth()/2 - gameOverText.getLineWidth()/2,
@@ -136,6 +160,11 @@ public class Main extends SimpleApplication implements ActionListener {
 
         inputManager.addMapping("Disparar", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addListener(this, "Disparar");
+        
+        //listener para la rotacion
+        inputManager.addMapping("MouseX", new MouseAxisTrigger(MouseInput.AXIS_X, true));
+        inputManager.addMapping("MouseY", new MouseAxisTrigger(MouseInput.AXIS_Y, false));
+        inputManager.addListener(this, "MouseX", "MouseY");
     }
 
     private void crearSuelo() {
@@ -187,6 +216,11 @@ public class Main extends SimpleApplication implements ActionListener {
         jugador.updateModelBound();
 
         rootNode.attachChild(jugador);
+        
+        // Crear un cameraNode como hijo del jugador
+        cameraNode = new Node("CameraNode");
+        //jugador.attachChild(cameraNode);
+        cameraNode.setLocalTranslation(0, 5, 10); // posición detrás y arriba del jugador
     }
 
     private void disparar() {
@@ -216,8 +250,7 @@ public class Main extends SimpleApplication implements ActionListener {
 
     @Override
     public void simpleUpdate(float tpf) {
-        if (gameOver) return;
-
+        
         Vector3f dir = new Vector3f();
         if (adelante) dir.z -= 1;
         if (atras) dir.z += 1;
@@ -227,10 +260,40 @@ public class Main extends SimpleApplication implements ActionListener {
             dir.normalizeLocal().multLocal(velocidadJugador * tpf);
             jugador.move(dir);
         }
+        
+        if (gameOver) return;
 
         Vector3f jugadorPos = jugador.getLocalTranslation();
         cam.setLocation(jugadorPos.add(0, 10, 20));
         cam.lookAt(jugadorPos, Vector3f.UNIT_Y);
+        /**
+        NMMS ESTE CODIGO NO JALO
+       
+        // Mueve la cámara SIEMPRE
+        //Vector3f jugadorPos = jugador.getLocalTranslation();
+        // Sigue al jugador
+        cam.setLocation(cameraNode.getWorldTranslation());
+        // Mira al jugador
+        cam.lookAt(jugador.getWorldTranslation().add(0, 2, 0), Vector3f.UNIT_Y);
+
+        // Solo actualiza lógica del juego si no es Game Over
+        if (gameOver) return;
+
+        // Movimiento del jugador
+        Vector3f dir = new Vector3f();
+        if (adelante) dir.z -= 1;
+        if (atras) dir.z += 1;
+        if (izquierda) dir.x -= 1;
+        if (derecha) dir.x += 1;
+
+        if (dir.lengthSquared() > 0) {
+            dir.normalizeLocal().multLocal(velocidadJugador * tpf);
+            dir = jugador.getLocalRotation().mult(dir);
+            jugador.move(dir);
+        }
+        **/
+        
+        System.out.println("Mouse Pos: " + inputManager.getCursorPosition());
 
         for (int i = balas.size() - 1; i >= 0; i--) {
             Geometry bala = balas.get(i);
@@ -276,14 +339,20 @@ public class Main extends SimpleApplication implements ActionListener {
         gameOver = true;
         gameOverText.setCullHint(Spatial.CullHint.Never); 
         
-        AudioNode music = (AudioNode) rootNode.getChild("BackgroundMusic");
+        //AudioNode music = (AudioNode) rootNode.getChild("BackgroundMusic");
         if (music != null) {
             music.stop();
         }
         
         AudioNode gameOverSound = new AudioNode(assetManager, "Sounds/gameover.wav", AudioData.DataType.Buffer);
         gameOverSound.setPositional(false);
+        gameOverSound.setLooping(false);
         gameOverSound.play();
+        
+        //este audio nomas por los loles, lo pueden quitar si quieren 
+        AudioNode gmOv = new AudioNode(assetManager, "Sounds/gameover_mus.wav", AudioData.DataType.Stream);
+        gmOv.setPositional(false);
+        gmOv.play();
         
         System.out.println("¡Game Over! Puntuación final: " + puntuacion);
     }
@@ -294,7 +363,7 @@ public class Main extends SimpleApplication implements ActionListener {
         Node enemigo = new Node("Enemigo");
 
         Spatial cabeza = assetManager.loadModel("Models/MonkeyHead.mesh.xml");
-        cabeza.scale(0.7f);
+        cabeza.scale(1.1f);
         cabeza.setLocalTranslation(0, 1.5f, 0);
         enemigo.attachChild(cabeza);
 
