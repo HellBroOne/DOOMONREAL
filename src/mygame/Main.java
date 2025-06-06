@@ -35,6 +35,9 @@ import com.jme3.util.SkyFactory;
 import com.jme3.input.controls.MouseAxisTrigger;
 
 
+import com.jme3.material.RenderState.BlendMode;
+import com.jme3.renderer.queue.RenderQueue;
+import com.jme3.scene.control.BillboardControl;
 
 public class Main extends SimpleApplication implements ActionListener {
 
@@ -44,6 +47,7 @@ public class Main extends SimpleApplication implements ActionListener {
     private float velocidadJugador = 15f;
     private List<Geometry> balas = new ArrayList<>();
     private List<Node> enemigos = new ArrayList<>();
+    private List<Node> jefes = new ArrayList<>();
     private Material materialBala;
     private Material texturaCalle;
     private Material materialEnemigo;
@@ -73,9 +77,9 @@ public class Main extends SimpleApplication implements ActionListener {
     @Override
     public void simpleInitApp() {
         inputManager.setCursorVisible(false);
-        flyCam.setEnabled(true);
+        flyCam.setEnabled(false);
         flyCam.setMoveSpeed(15f);
-        cam.setLocation(new Vector3f(0, 20, 30));
+        cam.setLocation(new Vector3f(0, 25, 40));
         cam.lookAt(new Vector3f(0, 0, 0), Vector3f.UNIT_Y);
 
         // Música de fondo
@@ -138,7 +142,7 @@ public class Main extends SimpleApplication implements ActionListener {
         
         // Texto de Game Over (inicialmente invisible)
         gameOverText = new BitmapText(font, false);
-        gameOverText.setSize(font.getCharSet().getRenderedSize() * 10);
+        gameOverText.setSize(font.getCharSet().getRenderedSize() * 7);
         gameOverText.setColor(ColorRGBA.White);
         gameOverText.setText("GAME OVER");
         gameOverText.setLocalTranslation(
@@ -207,13 +211,23 @@ public class Main extends SimpleApplication implements ActionListener {
     }
 
     private void crearJugador() {
-        jugador = assetManager.loadModel("Models/Ninja.mesh.xml");
-        
-        jugador.scale(0.03f);
-        jugador.setLocalTranslation(0, 0, 0);
-        
-        jugador.setModelBound(new BoundingBox());
-        jugador.updateModelBound();
+        // Crear un Quad plano que represente al jugador
+        Quad quad = new Quad(9f, 10f); // Tamaño del sprite. Ajusta según tu imagen
+        Geometry jugadorGeom = new Geometry("Jugador", quad);
+
+        // Crear un material con transparencia
+        Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        mat.setTexture("ColorMap", assetManager.loadTexture("Textures/monrealon.png")); // Ruta a tu PNG
+        mat.getAdditionalRenderState().setBlendMode(BlendMode.Alpha); // Para respetar transparencia
+        jugadorGeom.setQueueBucket(RenderQueue.Bucket.Transparent); // Para renderizar con alpha
+
+        jugadorGeom.setMaterial(mat);
+
+        jugadorGeom.setLocalTranslation(0, 0, 0);
+
+        jugadorGeom.rotate(0, FastMath.PI, 0); 
+
+        jugador = jugadorGeom;
 
         rootNode.attachChild(jugador);
         
@@ -223,19 +237,31 @@ public class Main extends SimpleApplication implements ActionListener {
         cameraNode.setLocalTranslation(0, 5, 10); // posición detrás y arriba del jugador
     }
 
+
     private void disparar() {
-        if (gameOver) return; 
-        
-        Sphere balaShape = new Sphere(20, 20, 0.3f);
-        Geometry bala = new Geometry("Bala", balaShape);
-        bala.setMaterial(materialBala);
-        Vector3f posicionBala = jugador.getLocalTranslation().add(0, 0.87f, 0);
-        bala.setLocalTranslation(posicionBala);
-        bala.setModelBound(new BoundingBox());
-        bala.updateModelBound();
-        rootNode.attachChild(bala);
-        balas.add(bala);
-    }
+    if (gameOver) return; 
+
+    // Crear un Quad plano para la bala
+    Quad quad = new Quad(3f, 2f); 
+    Geometry bala = new Geometry("Bala", quad);
+
+    // Crear un material que use el PNG con transparencia
+    Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+    mat.setTexture("ColorMap", assetManager.loadTexture("Textures/benito.png"));
+
+    bala.setMaterial(mat);
+
+    // Posicionar la bala
+    Vector3f posicionBala = jugador.getLocalTranslation().add(0, 0.87f, 0);
+    bala.setLocalTranslation(posicionBala);
+
+    // Orientación opcional (por ejemplo, mirando hacia el frente del jugador)
+    bala.rotate(0, jugador.getLocalRotation().toAngles(null)[1], 0);
+
+    rootNode.attachChild(bala);
+    balas.add(bala);
+}
+
     
     @Override
     public void onAction(String nombre, boolean estaPresionado, float tpf) {
@@ -250,22 +276,37 @@ public class Main extends SimpleApplication implements ActionListener {
 
     @Override
     public void simpleUpdate(float tpf) {
-        
+        if (gameOver) {
+            return;
+        }
+
+        if (jugador != null) {
+            jugador.lookAt(cam.getLocation(), Vector3f.UNIT_Y);
+        }
+
+        // Player movement (unchanged)
         Vector3f dir = new Vector3f();
-        if (adelante) dir.z -= 1;
-        if (atras) dir.z += 1;
-        if (izquierda) dir.x -= 1;
-        if (derecha) dir.x += 1;
+        if (adelante) {
+            dir.z -= 1;
+        }
+        if (atras) {
+            dir.z += 1;
+        }
+        if (izquierda) {
+            dir.x -= 1;
+        }
+        if (derecha) {
+            dir.x += 1;
+        }
         if (dir.lengthSquared() > 0) {
             dir.normalizeLocal().multLocal(velocidadJugador * tpf);
             jugador.move(dir);
         }
-        
-        if (gameOver) return;
 
+        // Camera follow - modified to be higher
         Vector3f jugadorPos = jugador.getLocalTranslation();
-        cam.setLocation(jugadorPos.add(0, 10, 20));
-        cam.lookAt(jugadorPos, Vector3f.UNIT_Y);
+        cam.setLocation(jugadorPos.add(0, 15, 25));
+        cam.lookAt(jugadorPos.add(0, 3, 0), Vector3f.UNIT_Y);
         /**
         NMMS ESTE CODIGO NO JALO
        
@@ -295,19 +336,21 @@ public class Main extends SimpleApplication implements ActionListener {
         
         System.out.println("Mouse Pos: " + inputManager.getCursorPosition());
 
+        // Bullet movement and collision
         for (int i = balas.size() - 1; i >= 0; i--) {
             Geometry bala = balas.get(i);
-            bala.move(0, 0, -100 * tpf); 
+            bala.move(0, 0, -100 * tpf);
 
+            // Check collision with regular enemies
             for (int j = enemigos.size() - 1; j >= 0; j--) {
                 Node enemigo = enemigos.get(j);
-                
+
                 if (bala.getWorldBound().intersects(enemigo.getWorldBound())) {
                     rootNode.detachChild(enemigo);
                     enemigos.remove(j);
                     AudioNode kill = new AudioNode(assetManager, "Sounds/enemydefeat.wav", AudioData.DataType.Buffer);
-                    kill.setPositional(true); 
-                    kill.playInstance();  
+                    kill.setPositional(true);
+                    kill.playInstance();
                     rootNode.detachChild(bala);
                     balas.remove(i);
                     puntuacion++;
@@ -317,18 +360,54 @@ public class Main extends SimpleApplication implements ActionListener {
                 }
             }
 
-            if (bala.getLocalTranslation().z < -100) {
+            // Check collision with bosses (only if bullet still exists)
+            if (i < balas.size()) {  // Make sure bullet wasn't removed by enemy collision
+                for (int j = jefes.size() - 1; j >= 0; j--) {
+                    Node boss = jefes.get(j);
+
+                    if (bala.getWorldBound().intersects(boss.getWorldBound())) {
+                        damageBoss(boss, 1); // Deal 1 damage
+                        rootNode.detachChild(bala);
+                        balas.remove(i);
+
+                        // Play different sound for boss hit
+                        AudioNode hit = new AudioNode(assetManager, "Sounds/Filter_hurt.wav", AudioData.DataType.Buffer);
+                        hit.setPositional(true);
+                        hit.playInstance();
+
+                        break;
+                    }
+                }
+            }
+
+            // Remove bullets that go too far
+            if (i < balas.size() && bala.getLocalTranslation().z < -100) {
                 rootNode.detachChild(bala);
                 balas.remove(i);
             }
         }
-
+        
+        // Enemy movement (unchanged)
         for (Node enemigo : enemigos) {
-            Vector3f dirEnemigo = jugador.getLocalTranslation().subtract(enemigo.getLocalTranslation()).normalize().mult(tpf * 3f);
+            Vector3f dirEnemigo = jugador.getLocalTranslation().subtract(enemigo.getLocalTranslation())
+                    .normalize().mult(tpf * 3f);
             enemigo.move(dirEnemigo);
             enemigo.updateModelBound();
-            
+
             if (jugador.getWorldBound().intersects(enemigo.getWorldBound())) {
+                gameOver();
+                break;
+            }
+        }
+
+        // Boss movement (similar to enemies but maybe different speed)
+        for (Node boss : jefes) {
+            Vector3f dirBoss = jugador.getLocalTranslation().subtract(boss.getLocalTranslation())
+                    .normalize().mult(tpf * 2f); // Boss might move slower
+            boss.move(dirBoss);
+            boss.updateModelBound();
+
+            if (jugador.getWorldBound().intersects(boss.getWorldBound())) {
                 gameOver();
                 break;
             }
@@ -357,22 +436,63 @@ public class Main extends SimpleApplication implements ActionListener {
         System.out.println("¡Game Over! Puntuación final: " + puntuacion);
     }
 
-    public void crearEnemigo() {
-        if (gameOver) return; 
-        
-        Node enemigo = new Node("Enemigo");
+    public void crearEnemigo(boolean isBoss) {
+        if (gameOver) {
+            return;
+        }
 
-        Spatial cabeza = assetManager.loadModel("Models/MonkeyHead.mesh.xml");
-        cabeza.scale(1.1f);
-        cabeza.setLocalTranslation(0, 1.5f, 0);
-        enemigo.attachChild(cabeza);
+        Node enemigo = new Node(isBoss ? "Boss" : "Enemigo");
 
+        // Create enemy/boss sprite
+        Material enemyMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        enemyMat.setTexture("ColorMap", assetManager.loadTexture(
+                isBoss ? "Textures/amlo2.png" : "Textures/enemy.png"));
+        enemyMat.getAdditionalRenderState().setBlendMode(BlendMode.Alpha);
+
+        float size = 4f; // Boss is bigger
+        Quad enemyQuad = new Quad(size, size);
+        Geometry enemyGeom = new Geometry(isBoss ? "BossSprite" : "EnemySprite", enemyQuad);
+        enemyGeom.setMaterial(enemyMat);
+        enemyGeom.setLocalTranslation(0, size / 2, 0); // Center vertically
+
+        // Make the sprite always face the camera
+        BillboardControl billboard = new BillboardControl();
+        enemyGeom.addControl(billboard);
+        enemigo.attachChild(enemyGeom);
+
+        // Create health bar for boss
+        if (isBoss) {
+            // Health bar background (red)
+            Quad healthBarBg = new Quad(size, 0.5f);
+            Geometry bgGeom = new Geometry("HealthBarBG", healthBarBg);
+            Material bgMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+            bgMat.setColor("Color", ColorRGBA.Red);
+            bgGeom.setMaterial(bgMat);
+            bgGeom.setLocalTranslation(-size / 2, size + 0.5f, 0);
+
+            // Actual health bar (green)
+            Quad healthBar = new Quad(size, 0.5f);
+            Geometry healthGeom = new Geometry("HealthBar", healthBar);
+            Material healthMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+            healthMat.setColor("Color", ColorRGBA.Green);
+            healthGeom.setMaterial(healthMat);
+            healthGeom.setLocalTranslation(-size / 2, size + 0.5f, 0.01f);
+
+            // Store health bar reference in user data
+            enemigo.setUserData("health", 100); // Boss has 10 health
+            enemigo.setUserData("maxHealth", 100);
+            enemigo.setUserData("healthBar", healthGeom);
+
+            enemigo.attachChild(bgGeom);
+            enemigo.attachChild(healthGeom);
+        }
+
+        // Create sign
         Node cartelNode = new Node("Cartel");
-
         BitmapFont font = assetManager.loadFont("Interface/Fonts/Default.fnt");
         BitmapText texto = new BitmapText(font, false);
         texto.setSize(0.5f);
-        texto.setText("¡¡NO AL SEGUNDO PISO!!");
+        texto.setText(isBoss ? "¡¡NO ACABARAS CON LA CUARTA TRANSFORMACION!!" : "¡¡NO AL SEGUNDO PISO!!");
         texto.setColor(ColorRGBA.Red);
         texto.updateLogicalState(0);
         texto.updateGeometricState();
@@ -392,18 +512,57 @@ public class Main extends SimpleApplication implements ActionListener {
 
         cartelNode.attachChild(fondoGeom);
         cartelNode.attachChild(texto);
-        cartelNode.setLocalTranslation(0, 3.2f, 0);
+        cartelNode.setLocalTranslation(0, size + 2f, 0); // Position above enemy/boss
         enemigo.attachChild(cartelNode);
 
+        // Position the enemy/boss
         Vector3f jugadorPos = jugador.getLocalTranslation();
-        float x = jugadorPos.x + (FastMath.nextRandomFloat() * 40f - 20f);
-        float z = jugadorPos.z - 20f - (FastMath.nextRandomFloat() * 10f);
+        float x = jugadorPos.x + (FastMath.nextRandomFloat() * (isBoss ? 30f : 40f) - (isBoss ? 15f : 20f));
+        float z = jugadorPos.z - (isBoss ? 30f : 20f) - (FastMath.nextRandomFloat() * (isBoss ? 5f : 10f));
         enemigo.setLocalTranslation(new Vector3f(x, 1f, z));
 
         enemigo.setModelBound(new BoundingBox());
         enemigo.updateModelBound();
-
-        enemigos.add(enemigo);
+        
+        if (isBoss) {
+            // Add to boss list if you have one
+            jefes.add(enemigo);
+        } else {
+            enemigos.add(enemigo);
+        }
         rootNode.attachChild(enemigo);
+    }
+    
+    public void damageBoss(Node boss, int damage) {
+        if (boss == null || !boss.getName().equals("Boss")) {
+            return;
+        }
+
+        int currentHealth = boss.getUserData("health");
+        int maxHealth = boss.getUserData("maxHealth");
+        Geometry healthBar = boss.getUserData("healthBar");
+
+        currentHealth = Math.max(0, currentHealth - damage);
+        boss.setUserData("health", currentHealth);
+
+        // Update health bar
+        float healthPercentage = (float) currentHealth / maxHealth;
+        float originalWidth = ((Quad) healthBar.getMesh()).getWidth(); // Get original width
+        healthBar.setLocalScale(healthPercentage, 1f, 1f);
+
+        // Calculate new position - center the scaled health bar
+        healthBar.setLocalTranslation(
+                -originalWidth * healthPercentage / 2f, // Adjusted X position
+                healthBar.getLocalTranslation().y, // Keep original Y
+                0.01f // Keep original Z
+        );
+
+        if (currentHealth <= 0) {
+            boss.removeFromParent();
+            jefes.remove(boss);
+            AudioNode kill = new AudioNode(assetManager, "Sounds/Isaac_dies_new_1.wav", AudioData.DataType.Buffer);
+            kill.setPositional(true);
+            kill.playInstance();
+        }
     }
 }
